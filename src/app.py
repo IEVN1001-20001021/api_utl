@@ -1,34 +1,62 @@
-from flask import Flask, render_template
+from flask import Flask, request, jsonify
+from flask_mysqldb import MySQL
+from config import config
 
 app = Flask(__name__)
 
-@app.route('/')
-def index():
-    titulo = "IEVN-1001"
-    list = ["Miguel", "Juan", "Pedro", "Luis"]
-    return render_template('uno.html',titulo=titulo, list=list)
+con = MySQL(app)
 
-""" @app.route('/user/<string:user>')
-def user(user):
-    return "El usuario es: {}".format(user)
+@app.route('/alumnos', methods=['GET'])
+def lista_alumnos():
+    try:
+        cursor = con.connection.cursor()
+        sql="SELECT * FROM alumnos"
+        cursor.execute(sql)
+        datos = cursor.fetchall()
+        alumnos = []
+        for fila in datos:
+            alumno = {
+                'id': fila[0],
+                'nombre': fila[1],
+                'apellido': fila[2],
+                'email': fila[3]
+            }
+            alumnos.append(alumno)
+        return jsonify({'alumnos': alumnos, 'mensaje': 'Lista de alumnos'}), 200
+    except Exception as ex:
+        return jsonify({"message": "error{}".format(ex), "exito": False}), 500
+    return ''
 
-@app.route('/user/<int:n1>')
-def numero(n1):
-    return "El numero es: {}".format(n1)
+def leer_alumno_bd(matricula):
+    try:
+        cursor=con.connection.cursor()
+        sql="select * from alumnos where matricula{}".format(matricula)
+        cursor.execute(sql)
+        datos=cursor.fetchone()
+       
+        if datos!=None:
+            alumno={'matricula':datos[0], 'nombre':datos[1], 'apaterno':datos[2], 'amaterno':datos[3], 'correo':datos[4]}
+            return alumno
+        else: return None
+    except Exception as ex:
+        return jsonify({"message": "error {}".format(ex), 'exito': False}),500
+ 
+ 
+@app.route("/alumnos/<mat>",methods=['GET'])
+def leer_alumno(mat):
+    try:
+        alumno=leer_alumno_bd(mat)
+        if alumno!=None:
+            return jsonify ({'alumno':alumno, 'mensaje':'Alumno encontrado', 'exito':True}),
+        else:
+            jsonify ({'alumno':alumno, 'mensaje':'Alumno encontrado', 'exito':False}),
+    except Exception as ex:
+        return jsonify({"message": "error {}".format(ex), 'exito': False}),500
 
-@app.route('/user/<string:user>/<int:id>')
-def user(user, id):
-    return "<h1>El usuario es: {} y su id es: {}</h1>".format(user, id)
-
-@app.route('/suma/<int:n1>/<int:n2>')
-def suma(n1, n2):
-    return "<h1>La suma de {} y {} es: {}</h1>".format(n1, n2, n1+n2)
-
-@app.route('/default')
-
-@app.route('/default/<string:nombre>')
-def nom2(nom='Miguel'):
-    return "<h1>El nombre es: {}</h1>".format(nom) """
+def pagina_no_encontrada(error):
+    return "<h1>Pagina no encontrada</h1>", 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.config.from_object(config['development'])
+    app.register_error_handler(400, pagina_no_encontrada)
+    app.run(host='0.0.0.0', port=5000)
